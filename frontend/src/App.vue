@@ -28,14 +28,18 @@ const emptyForm = {
 
 const items = ref([]);
 const form = reactive({ ...emptyForm });
-const editingId = ref(null);
 const loading = ref(false);
+const initialLoading = ref(true);
+const refreshing = ref(false);
 const saving = ref(false);
 const error = ref('');
 const success = ref('');
 const search = ref('');
 const openSelect = ref('');
 const deleteTarget = ref(null);
+const editTarget = ref(null);
+const editForm = reactive({ ...emptyForm });
+const editOpenSelect = ref('');
 
 const carTypes = ['รถยนต์', 'รถจักรยานยนต์'];
 const statuses = ['ออกแล้ว', 'รอออก', 'หมดอายุ'];
@@ -86,8 +90,9 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
-async function loadItems({ keepMessage = false } = {}) {
+async function loadItems({ keepMessage = false, mode = 'load' } = {}) {
   loading.value = true;
+  refreshing.value = mode === 'refresh';
 
   if (!keepMessage) {
     setMessage('', '');
@@ -105,18 +110,20 @@ async function loadItems({ keepMessage = false } = {}) {
     setMessage('error', loadError.message);
   } finally {
     loading.value = false;
+    refreshing.value = false;
+    initialLoading.value = false;
   }
 }
 
 function resetForm() {
   Object.assign(form, emptyForm);
-  editingId.value = null;
   openSelect.value = '';
   setMessage('', '');
 }
 
 function editItem(item) {
-  Object.assign(form, {
+  editTarget.value = item;
+  Object.assign(editForm, {
     plate_no: item.plate_no,
     type: item.type,
     brand_model: item.brand_model,
@@ -125,9 +132,7 @@ function editItem(item) {
     department: item.department,
     status: item.status,
   });
-  editingId.value = item.id;
-  setMessage('success', `กำลังแก้ไขทะเบียน ${item.plate_no}`);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  editOpenSelect.value = '';
 }
 
 function toggleSelect(name) {
@@ -139,23 +144,59 @@ function chooseOption(field, value) {
   openSelect.value = '';
 }
 
+function toggleEditSelect(name) {
+  editOpenSelect.value = editOpenSelect.value === name ? '' : name;
+}
+
+function chooseEditOption(field, value) {
+  editForm[field] = value;
+  editOpenSelect.value = '';
+}
+
+function closeEditModal() {
+  editTarget.value = null;
+  editOpenSelect.value = '';
+  Object.assign(editForm, emptyForm);
+}
+
 async function saveItem() {
   saving.value = true;
   setMessage('', '');
 
   try {
-    const method = editingId.value ? 'PUT' : 'POST';
-    const url = editingId.value ? `/api/items/${editingId.value}` : '/api/items';
-
-    await requestJson(url, {
-      method,
+    await requestJson('/api/items', {
+      method: 'POST',
       body: JSON.stringify(form),
     });
 
-    const message = editingId.value ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มข้อมูลรถแล้ว';
     resetForm();
     await loadItems({ keepMessage: true });
-    setMessage('success', message);
+    setMessage('success', 'เพิ่มข้อมูลรถแล้ว');
+  } catch (saveError) {
+    setMessage('error', saveError.message);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function saveEditItem() {
+  if (!editTarget.value) {
+    return;
+  }
+
+  saving.value = true;
+  setMessage('', '');
+
+  try {
+    await requestJson(`/api/items/${editTarget.value.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(editForm),
+    });
+
+    const plate = editForm.plate_no;
+    closeEditModal();
+    await loadItems({ keepMessage: true });
+    setMessage('success', `บันทึกการแก้ไขทะเบียน ${plate} แล้ว`);
   } catch (saveError) {
     setMessage('error', saveError.message);
   } finally {
@@ -239,11 +280,13 @@ onMounted(loadItems);
     <section class="overview" aria-label="สรุปข้อมูล">
       <article class="summary-card">
         <span><Car :size="18" /> รถทั้งหมด</span>
-        <strong>{{ items.length }}</strong>
+        <strong v-if="!initialLoading">{{ items.length }}</strong>
+        <strong v-else class="skeleton skeleton-number"></strong>
       </article>
       <article v-for="count in statusCounts" :key="count.label" class="summary-card">
         <span><CheckCircle2 :size="18" /> {{ count.label }}</span>
-        <strong>{{ count.total }}</strong>
+        <strong v-if="!initialLoading">{{ count.total }}</strong>
+        <strong v-else class="skeleton skeleton-number"></strong>
       </article>
     </section>
 
@@ -255,7 +298,7 @@ onMounted(loadItems);
               <ClipboardList :size="16" />
               Vehicle form
             </p>
-            <h2>{{ editingId ? 'แก้ไขข้อมูลรถ' : 'เพิ่มข้อมูลรถ' }}</h2>
+            <h2>เพิ่มข้อมูลรถ</h2>
             <p class="panel-note">กรอกข้อมูลให้ครบเพื่อบันทึกสติกเกอร์เข้า-ออกวิทยาลัย</p>
           </div>
           <button type="button" class="ghost-button" @click="resetForm">ล้างฟอร์ม</button>
@@ -355,7 +398,7 @@ onMounted(loadItems);
 
         <button class="primary-button" type="submit" :disabled="saving">
           <CheckCircle2 :size="20" />
-          {{ saving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล' }}
+          {{ saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล' }}
         </button>
       </form>
 
@@ -369,9 +412,10 @@ onMounted(loadItems);
             <h2>รายการรถบุคลากร</h2>
             <p class="panel-note">ดูสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
           </div>
-          <button type="button" class="ghost-button" :disabled="loading" @click="loadItems">
-            <RefreshCw :size="18" />
-            {{ loading ? 'กำลังโหลด...' : 'รีเฟรช' }}
+          <button type="button" class="ghost-button" :disabled="loading" @click="loadItems({ mode: 'refresh' })">
+            <span v-if="refreshing" class="spinner" aria-hidden="true"></span>
+            <RefreshCw v-else :size="18" />
+            {{ refreshing ? 'กำลังรีเฟรช...' : 'รีเฟรช' }}
           </button>
         </div>
 
@@ -383,13 +427,22 @@ onMounted(loadItems);
           </div>
         </label>
 
-        <div class="empty-state" v-if="!loading && filteredItems.length === 0">
+        <div v-if="initialLoading" class="skeleton-stack" aria-label="กำลังโหลดข้อมูล">
+          <div class="skeleton-table">
+            <span v-for="row in 5" :key="`table-skeleton-${row}`" class="skeleton skeleton-row"></span>
+          </div>
+          <div class="skeleton-cards">
+            <span v-for="row in 3" :key="`card-skeleton-${row}`" class="skeleton skeleton-card"></span>
+          </div>
+        </div>
+
+        <div class="empty-state" v-else-if="filteredItems.length === 0">
           <Sparkles :size="28" />
           <strong>ยังไม่มีข้อมูลรถ</strong>
           <span>เริ่มจากเพิ่มข้อมูลคันแรก หรือปรับคำค้นหาอีกครั้ง</span>
         </div>
 
-        <div class="table-wrap" v-else>
+        <div class="table-wrap" v-else :class="{ 'is-refreshing': refreshing }">
           <table>
             <thead>
               <tr>
@@ -429,7 +482,7 @@ onMounted(loadItems);
           </table>
         </div>
 
-        <div class="record-cards" v-if="!loading && filteredItems.length > 0">
+        <div class="record-cards" v-if="!initialLoading && filteredItems.length > 0" :class="{ 'is-refreshing': refreshing }">
           <article v-for="item in filteredItems" :key="`card-${item.id}`" class="record-card">
             <div class="record-card__top">
               <div>
@@ -495,6 +548,117 @@ onMounted(loadItems);
             {{ loading ? 'กำลังลบ...' : 'ยืนยันลบ' }}
           </button>
         </div>
+      </section>
+    </div>
+
+    <div v-if="editTarget" class="confirm-backdrop" role="presentation" @click.self="closeEditModal">
+      <section class="confirm-dialog edit-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+        <button type="button" class="confirm-close" aria-label="ปิดหน้าต่างแก้ไข" @click="closeEditModal">
+          <X :size="18" />
+        </button>
+        <div class="confirm-icon edit-icon">
+          <Edit3 :size="28" />
+        </div>
+        <p class="eyebrow">Edit vehicle</p>
+        <h2 id="edit-title">แก้ไขข้อมูลรถ</h2>
+        <p>ปรับข้อมูลทะเบียน <strong>{{ editTarget.plate_no }}</strong> แล้วกดบันทึก</p>
+
+        <form class="modal-field-grid" @submit.prevent="saveEditItem">
+          <label>
+            <span>ทะเบียนรถ</span>
+            <input v-model.trim="editForm.plate_no" required placeholder="กข 1234 เลย" />
+          </label>
+
+          <label>
+            <span>ประเภทรถ</span>
+            <div class="custom-select" :class="{ 'is-open': editOpenSelect === 'type' }">
+              <button
+                type="button"
+                class="select-trigger"
+                :aria-expanded="editOpenSelect === 'type'"
+                aria-haspopup="listbox"
+                @click="toggleEditSelect('type')"
+              >
+                <span>{{ editForm.type }}</span>
+                <ChevronDown :size="18" />
+              </button>
+              <div v-if="editOpenSelect === 'type'" class="select-menu" role="listbox">
+                <button
+                  v-for="type in carTypes"
+                  :key="type"
+                  type="button"
+                  class="select-option"
+                  :class="{ 'is-selected': editForm.type === type }"
+                  role="option"
+                  :aria-selected="editForm.type === type"
+                  @click="chooseEditOption('type', type)"
+                >
+                  <Car :size="17" />
+                  {{ type }}
+                </button>
+              </div>
+            </div>
+          </label>
+
+          <label>
+            <span>ยี่ห้อและรุ่น</span>
+            <input v-model.trim="editForm.brand_model" required placeholder="Toyota Yaris" />
+          </label>
+
+          <label>
+            <span>สี</span>
+            <input v-model.trim="editForm.color" required placeholder="ขาว" />
+          </label>
+
+          <label>
+            <span>ชื่อเจ้าของ</span>
+            <input v-model.trim="editForm.owner" required placeholder="สมชาย ใจดี" />
+          </label>
+
+          <label>
+            <span>แผนก</span>
+            <input v-model.trim="editForm.department" required placeholder="เทคโนโลยีสารสนเทศ" />
+          </label>
+
+          <label class="full">
+            <span>สถานะ</span>
+            <div class="custom-select" :class="{ 'is-open': editOpenSelect === 'status' }">
+              <button
+                type="button"
+                class="select-trigger"
+                :aria-expanded="editOpenSelect === 'status'"
+                aria-haspopup="listbox"
+                @click="toggleEditSelect('status')"
+              >
+                <span class="status-dot" :class="statusClass(editForm.status)">{{ editForm.status }}</span>
+                <ChevronDown :size="18" />
+              </button>
+              <div v-if="editOpenSelect === 'status'" class="select-menu" role="listbox">
+                <button
+                  v-for="status in statuses"
+                  :key="status"
+                  type="button"
+                  class="select-option"
+                  :class="{ 'is-selected': editForm.status === status }"
+                  role="option"
+                  :aria-selected="editForm.status === status"
+                  @click="chooseEditOption('status', status)"
+                >
+                  <CheckCircle2 :size="17" />
+                  {{ status }}
+                </button>
+              </div>
+            </div>
+          </label>
+
+          <div class="confirm-actions full">
+            <button type="button" class="ghost-button" @click="closeEditModal">ยกเลิก</button>
+            <button type="submit" class="primary-button" :disabled="saving">
+              <CheckCircle2 :size="18" />
+              {{ saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข' }}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   </main>

@@ -279,6 +279,11 @@ label span {
   font-size: 2rem;
 }
 
+.summary-card .skeleton-number {
+  width: 58px;
+  height: 42px;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
@@ -501,6 +506,21 @@ button:focus-visible,
   transform: translateY(-1px);
 }
 
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(63, 82, 217, 0.18);
+  border-top-color: var(--blue-violet);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .message {
   margin-bottom: 14px;
   padding: 12px;
@@ -544,6 +564,13 @@ button:focus-visible,
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.table-wrap.is-refreshing,
+.record-cards.is-refreshing {
+  opacity: 0.72;
+  filter: saturate(0.92);
 }
 
 table {
@@ -617,6 +644,56 @@ th {
 .empty-state strong {
   color: var(--blue-violet-dark);
   font-size: 1.08rem;
+}
+
+.skeleton-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #edf2ff;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.86), transparent);
+  animation: shimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-table {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.skeleton-row {
+  height: 48px;
+}
+
+.skeleton-cards {
+  display: none;
+  gap: 12px;
+}
+
+.skeleton-card {
+  height: 156px;
 }
 
 .record-cards {
@@ -699,6 +776,8 @@ th {
 .confirm-dialog {
   position: relative;
   width: min(430px, 100%);
+  max-height: min(92vh, 760px);
+  overflow-y: auto;
   padding: 26px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 8px;
@@ -756,6 +835,44 @@ th {
   margin-top: 20px;
 }
 
+.edit-dialog {
+  width: min(760px, 100%);
+  text-align: left;
+}
+
+.edit-dialog > .eyebrow,
+.edit-dialog > h2,
+.edit-dialog > p,
+.edit-dialog > .confirm-icon {
+  text-align: center;
+}
+
+.edit-dialog > .confirm-icon {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.edit-icon {
+  color: var(--blue-violet);
+  background: var(--sky);
+  box-shadow: 0 16px 34px rgba(63, 82, 217, 0.14);
+}
+
+.modal-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.modal-field-grid .full {
+  grid-column: 1 / -1;
+}
+
+.modal-field-grid .primary-button {
+  margin-top: 0;
+}
+
 @media (max-width: 920px) {
   .hero,
   .workspace,
@@ -772,6 +889,14 @@ th {
   .record-cards {
     display: grid;
     gap: 12px;
+  }
+
+  .skeleton-table {
+    display: none;
+  }
+
+  .skeleton-cards {
+    display: grid;
   }
 }
 
@@ -812,12 +937,17 @@ th {
   .record-card__top,
   .record-grid,
   .card-actions,
-  .confirm-actions {
+  .confirm-actions,
+  .modal-field-grid {
     grid-template-columns: 1fr;
   }
 
   .record-card__top {
     display: grid;
+  }
+
+  .confirm-dialog {
+    padding: 22px;
   }
 }
 
@@ -829,5 +959,9 @@ th {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .skeleton::after {
+    display: none;
   }
 }
