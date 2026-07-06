@@ -89,6 +89,13 @@ docker push xenalz/staffcar-web:v1.0.0
 docker push xenalz/staffcar-web:latest
 ```
 
+## Git workflow
+
+- `main` — โค้ด production
+- `develop` — รวม feature ที่เสร็จแล้ว
+- `feature/*` — พัฒนา feature แยก branch (เช่น `feature/frontend-ui`)
+- ทุกการ merge เข้า `main` ผ่าน Pull Request และ CI ต้องผ่านก่อน merge
+
 ## Project structure
 
 ```text
