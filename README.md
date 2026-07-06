@@ -5,6 +5,7 @@
 **ระดับชั้น/กลุ่มเรียน:** ปวส2/2
 
 [![CI - staffcar](https://github.com/9fight/midterm-devops-staffcar-68319010015/actions/workflows/ci.yml/badge.svg)](https://github.com/9fight/midterm-devops-staffcar-68319010015/actions/workflows/ci.yml)
+[![CD - staffcar](https://github.com/9fight/midterm-devops-staffcar-68319010015/actions/workflows/cd.yml/badge.svg)](https://github.com/9fight/midterm-devops-staffcar-68319010015/actions/workflows/cd.yml)
 
 ระบบ CRUD สำหรับบันทึกข้อมูลรถของบุคลากรเพื่อออกสติกเกอร์เข้า-ออกวิทยาลัยเทคนิคเลย ใช้ Node.js + Express + PostgreSQL และ frontend แบบ Vue 3 + Vite
 

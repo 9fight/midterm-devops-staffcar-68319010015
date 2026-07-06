@@ -8,6 +8,7 @@ on:
       - "feature/**"
   pull_request:
     branches:
+      - develop
       - main
 
 jobs:
@@ -66,44 +67,3 @@ jobs:
 
       - name: Build frontend image
         run: docker build -t staffcar-web:test ./frontend
-
-  docker-publish:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref_name == 'main'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Validate Docker Hub token
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN || secrets.docker_token }}
-        run: |
-          if [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "Missing Docker Hub token. Add a repository secret named DOCKERHUB_TOKEN, DOCKER_TOKEN, or docker_token."
-            exit 1
-          fi
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: xenalz
-          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN || secrets.docker_token }}
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          push: true
-          tags: |
-            xenalz/staffcar-api:latest
-            xenalz/staffcar-api:v1.0.0
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./frontend
-          push: true
-          tags: |
-            xenalz/staffcar-web:latest
-            xenalz/staffcar-web:v1.0.0
