@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -37,12 +37,12 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -59,7 +59,7 @@ jobs:
     needs: test
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build backend image
         run: docker build -t staffcar-api:test ./backend
@@ -73,25 +73,25 @@ jobs:
     if: github.event_name == 'push' && github.ref_name == 'main'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate Docker Hub token
         env:
-          DOCKERHUB_TOKEN: ${{ secrets.docker_token || secrets.DOCKER_TOKEN }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN || secrets.docker_token }}
         run: |
           if [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "Missing Docker Hub token. Add a repository secret named docker_token or DOCKER_TOKEN."
+            echo "Missing Docker Hub token. Add a repository secret named DOCKERHUB_TOKEN, DOCKER_TOKEN, or docker_token."
             exit 1
           fi
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: xenalz
-          password: ${{ secrets.docker_token || secrets.DOCKER_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN || secrets.docker_token }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           push: true
@@ -100,7 +100,7 @@ jobs:
             xenalz/staffcar-api:v1.0.0
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           push: true
