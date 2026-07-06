@@ -1,10 +1,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
+  AlertTriangle,
   BadgeCheck,
+  Bike,
   Car,
-  ChevronDown,
   CheckCircle2,
+  ClipboardList,
+  Clock3,
   Edit3,
   PlusCircle,
   RefreshCw,
@@ -34,42 +37,89 @@ const saving = ref(false);
 const error = ref('');
 const success = ref('');
 const search = ref('');
-const openSelect = ref('');
+const statusFilter = ref('ทั้งหมด');
 const addModalOpen = ref(false);
 const deleteTarget = ref(null);
 const editTarget = ref(null);
 const editForm = reactive({ ...emptyForm });
-const editOpenSelect = ref('');
 
 const carTypes = ['รถยนต์', 'รถจักรยานยนต์'];
 const statuses = ['ออกแล้ว', 'รอออก', 'หมดอายุ'];
+const filterOptions = ['ทั้งหมด', ...statuses];
 
 const filteredItems = computed(() => {
   const keyword = search.value.trim().toLowerCase();
 
-  if (!keyword) {
-    return items.value;
-  }
+  return items.value.filter((item) => {
+    const matchesStatus = statusFilter.value === 'ทั้งหมด' || item.status === statusFilter.value;
+    const matchesKeyword = !keyword || [
+      item.plate_no,
+      item.type,
+      item.brand_model,
+      item.color,
+      item.owner,
+      item.department,
+      item.status,
+    ].some((value) => String(value).toLowerCase().includes(keyword));
 
-  return items.value.filter((item) => [
-    item.plate_no,
-    item.type,
-    item.brand_model,
-    item.color,
-    item.owner,
-    item.department,
-    item.status,
-  ].some((value) => String(value).toLowerCase().includes(keyword)));
+    return matchesStatus && matchesKeyword;
+  });
 });
 
-const statusCounts = computed(() => statuses.map((status) => ({
-  label: status,
-  total: items.value.filter((item) => item.status === status).length,
-})));
+const summaryCards = computed(() => [
+  {
+    label: 'รถทั้งหมด',
+    helper: 'ข้อมูลในระบบ',
+    total: items.value.length,
+    filter: 'ทั้งหมด',
+  },
+  ...statuses.map((status) => ({
+    label: status,
+    helper: statusHelper(status),
+    total: items.value.filter((item) => item.status === status).length,
+    filter: status,
+  })),
+]);
+
+const emptyTitle = computed(() => (
+  items.value.length === 0
+    ? 'ยังไม่มีข้อมูลรถ'
+    : 'ไม่พบข้อมูลที่ตรงกับเงื่อนไข'
+));
+
+const emptyDescription = computed(() => (
+  items.value.length === 0
+    ? 'เริ่มจากเพิ่มข้อมูลรถคันแรก ระบบจะแสดงรายการให้จัดการได้ทันที'
+    : 'ลองล้างคำค้นหา หรือเลือกสถานะทั้งหมดเพื่อดูรายการอีกครั้ง'
+));
 
 function setMessage(type, message) {
   error.value = type === 'error' ? message : '';
   success.value = type === 'success' ? message : '';
+}
+
+function friendlyError(message) {
+  if (!message) {
+    return 'ไม่สามารถเชื่อมต่อระบบได้';
+  }
+
+  if (message.includes('plate_no already exists')) {
+    return 'มีทะเบียนนี้อยู่แล้ว กรุณาตรวจสอบทะเบียนรถอีกครั้ง';
+  }
+
+  if (message.includes('Missing required fields')) {
+    return 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
+  }
+
+  if (message.includes('car not found')) {
+    return 'ไม่พบข้อมูลรถคันนี้ อาจถูกลบไปแล้ว';
+  }
+
+  if (message.includes('database error')) {
+    return 'ฐานข้อมูลไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้ง';
+  }
+
+  return message;
 }
 
 async function requestJson(url, options = {}) {
@@ -84,7 +134,7 @@ async function requestJson(url, options = {}) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.message || 'ไม่สามารถเชื่อมต่อระบบได้');
+    throw new Error(friendlyError(payload.message));
   }
 
   return payload;
@@ -117,13 +167,11 @@ async function loadItems({ keepMessage = false, mode = 'load' } = {}) {
 
 function openAddModal() {
   addModalOpen.value = true;
-  openSelect.value = '';
   setMessage('', '');
 }
 
 function closeAddModal() {
   addModalOpen.value = false;
-  openSelect.value = '';
   Object.assign(form, emptyForm);
 }
 
@@ -138,30 +186,10 @@ function editItem(item) {
     department: item.department,
     status: item.status,
   });
-  editOpenSelect.value = '';
-}
-
-function toggleSelect(name) {
-  openSelect.value = openSelect.value === name ? '' : name;
-}
-
-function chooseOption(field, value) {
-  form[field] = value;
-  openSelect.value = '';
-}
-
-function toggleEditSelect(name) {
-  editOpenSelect.value = editOpenSelect.value === name ? '' : name;
-}
-
-function chooseEditOption(field, value) {
-  editForm[field] = value;
-  editOpenSelect.value = '';
 }
 
 function closeEditModal() {
   editTarget.value = null;
-  editOpenSelect.value = '';
   Object.assign(editForm, emptyForm);
 }
 
@@ -177,7 +205,7 @@ async function saveItem() {
 
     closeAddModal();
     await loadItems({ keepMessage: true });
-    setMessage('success', 'เพิ่มข้อมูลรถแล้ว');
+    setMessage('success', 'เพิ่มข้อมูลรถเรียบร้อย');
   } catch (saveError) {
     setMessage('error', saveError.message);
   } finally {
@@ -239,6 +267,27 @@ async function confirmDelete() {
   }
 }
 
+function clearSearch() {
+  search.value = '';
+}
+
+function resetFilters() {
+  search.value = '';
+  statusFilter.value = 'ทั้งหมด';
+}
+
+function statusHelper(status) {
+  if (status === 'ออกแล้ว') {
+    return 'ออกสติกเกอร์แล้ว';
+  }
+
+  if (status === 'รอออก') {
+    return 'รอดำเนินการ';
+  }
+
+  return 'ต้องตรวจสอบ';
+}
+
 function statusClass(status) {
   return {
     'is-ready': status === 'ออกแล้ว',
@@ -247,7 +296,7 @@ function statusClass(status) {
   };
 }
 
-onMounted(loadItems);
+onMounted(() => loadItems());
 </script>
 
 <template>
@@ -265,50 +314,69 @@ onMounted(loadItems);
     </div>
 
     <section class="hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">
           <Sparkles :size="16" />
-          staffcar · Loei Technical College
+          staffcar - Loei Technical College
         </p>
         <h1>ระบบบันทึกข้อมูลรถของบุคลากร</h1>
-        <p class="lead">จัดการทะเบียนรถสำหรับออกสติกเกอร์เข้า-ออกวิทยาลัยแบบครบในหน้าเดียว</p>
+        <p class="lead">ค้นหา เพิ่ม แก้ไข และติดตามสถานะสติกเกอร์รถได้ครบในหน้าเดียว</p>
         <div class="hero-actions" aria-label="การทำงานหลัก">
-          <span><PlusCircle :size="18" /> เพิ่มข้อมูลรถ</span>
-          <span><Search :size="18" /> ค้นหาได้ทันที</span>
-          <span><BadgeCheck :size="18" /> ติดตามสถานะ</span>
+          <button type="button" class="hero-action primary" @click="openAddModal">
+            <PlusCircle :size="18" />
+            เพิ่มข้อมูลรถ
+          </button>
+          <a class="hero-action" href="#records-title">
+            <ClipboardList :size="18" />
+            ไปที่รายการ
+          </a>
+          <span class="hero-action">
+            <BadgeCheck :size="18" />
+            ติดตามสถานะ
+          </span>
         </div>
       </div>
 
       <div class="owner-card" aria-label="ข้อมูลผู้จัดทำ">
         <span><UserRound :size="17" /> ผู้จัดทำ</span>
         <strong>chetsada suthongsa</strong>
-        <small>68319010015 · ปวส2/2</small>
+        <small>68319010015 - ปวส2/2</small>
       </div>
     </section>
 
     <section class="overview" aria-label="สรุปข้อมูล">
-      <article class="summary-card">
-        <span><Car :size="18" /> รถทั้งหมด</span>
-        <strong v-if="!initialLoading">{{ items.length }}</strong>
+      <button
+        v-for="card in summaryCards"
+        :key="card.label"
+        type="button"
+        class="summary-card"
+        :class="{ 'is-active': statusFilter === card.filter }"
+        :disabled="initialLoading"
+        @click="statusFilter = card.filter"
+      >
+        <span>
+          <Car v-if="card.filter === 'ทั้งหมด'" :size="18" />
+          <CheckCircle2 v-else-if="card.filter === 'ออกแล้ว'" :size="18" />
+          <Clock3 v-else-if="card.filter === 'รอออก'" :size="18" />
+          <AlertTriangle v-else :size="18" />
+          {{ card.label }}
+        </span>
+        <strong v-if="!initialLoading">{{ card.total }}</strong>
         <strong v-else class="skeleton skeleton-number"></strong>
-      </article>
-      <article v-for="count in statusCounts" :key="count.label" class="summary-card">
-        <span><CheckCircle2 :size="18" /> {{ count.label }}</span>
-        <strong v-if="!initialLoading">{{ count.total }}</strong>
-        <strong v-else class="skeleton skeleton-number"></strong>
-      </article>
+        <small>{{ card.helper }}</small>
+      </button>
     </section>
 
     <section class="workspace">
-      <section class="panel list-panel">
+      <section class="panel list-panel" aria-labelledby="records-title">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">
-              <Car :size="16" />
+              <ClipboardList :size="16" />
               Vehicle records
             </p>
-            <h2>รายการรถบุคลากร</h2>
-            <p class="panel-note">ดูสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
+            <h2 id="records-title">รายการรถบุคลากร</h2>
+            <p class="panel-note">กรองสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
           </div>
           <div class="panel-actions">
             <button type="button" class="primary-button add-button" @click="openAddModal">
@@ -318,21 +386,46 @@ onMounted(loadItems);
             <button type="button" class="ghost-button" :disabled="loading" @click="loadItems({ mode: 'refresh' })">
               <span v-if="refreshing" class="spinner" aria-hidden="true"></span>
               <RefreshCw v-else :size="18" />
-              {{ refreshing ? 'กำลังรีเฟรช...' : 'รีเฟรช' }}
+              {{ refreshing ? 'กำลังรีเฟรช' : 'รีเฟรช' }}
             </button>
           </div>
         </div>
 
-        <div class="message error" v-if="error">{{ error }}</div>
-        <div class="message success" v-if="success">{{ success }}</div>
+        <div class="message error" v-if="error" role="alert">{{ error }}</div>
+        <div class="message success" v-if="success" role="status">{{ success }}</div>
 
         <div class="records-toolbar">
           <label class="search-box">
             <span>ค้นหา</span>
             <div class="search-input">
-              <input v-model.trim="search" placeholder="ทะเบียน เจ้าของ แผนก หรือสถานะ" />
+              <Search :size="18" aria-hidden="true" />
+              <input v-model.trim="search" placeholder="พิมพ์ทะเบียน เจ้าของ แผนก หรือสถานะ" />
+              <button v-if="search" type="button" class="clear-search" aria-label="ล้างคำค้นหา" @click="clearSearch">
+                <X :size="16" />
+              </button>
             </div>
           </label>
+
+          <div class="filter-group" role="group" aria-label="กรองสถานะ">
+            <span>สถานะ</span>
+            <div class="filter-pills">
+              <button
+                v-for="option in filterOptions"
+                :key="option"
+                type="button"
+                class="filter-pill"
+                :class="{ 'is-active': statusFilter === option }"
+                @click="statusFilter = option"
+              >
+                <ClipboardList v-if="option === 'ทั้งหมด'" :size="16" />
+                <CheckCircle2 v-else-if="option === 'ออกแล้ว'" :size="16" />
+                <Clock3 v-else-if="option === 'รอออก'" :size="16" />
+                <AlertTriangle v-else :size="16" />
+                {{ option }}
+              </button>
+            </div>
+          </div>
+
           <div class="record-count" aria-live="polite">
             <strong>{{ initialLoading ? '-' : filteredItems.length }}</strong>
             <span>รายการที่แสดง</span>
@@ -347,8 +440,17 @@ onMounted(loadItems);
 
         <div class="empty-state" v-else-if="filteredItems.length === 0">
           <Sparkles :size="28" />
-          <strong>ยังไม่มีข้อมูลรถ</strong>
-          <span>เริ่มจากเพิ่มข้อมูลคันแรก หรือปรับคำค้นหาอีกครั้ง</span>
+          <strong>{{ emptyTitle }}</strong>
+          <span>{{ emptyDescription }}</span>
+          <div class="empty-actions">
+            <button v-if="items.length === 0" type="button" class="primary-button add-button" @click="openAddModal">
+              <PlusCircle :size="18" />
+              เพิ่มข้อมูลรถ
+            </button>
+            <button v-else type="button" class="ghost-button" @click="resetFilters">
+              ล้างตัวกรอง
+            </button>
+          </div>
         </div>
 
         <div class="records-board" v-else :class="{ 'is-refreshing': refreshing }">
@@ -357,15 +459,23 @@ onMounted(loadItems);
               <div class="plate-block">
                 <span class="record-label">ทะเบียนรถ</span>
                 <strong class="plate">{{ item.plate_no }}</strong>
-                <span class="type-chip"><Car :size="15" /> {{ item.type }}</span>
+                <span class="type-chip">
+                  <Car v-if="item.type === 'รถยนต์'" :size="15" />
+                  <Bike v-else :size="15" />
+                  {{ item.type }}
+                </span>
               </div>
               <span class="status" :class="statusClass(item.status)">{{ item.status }}</span>
             </div>
 
             <dl class="record-meta">
               <div>
-                <dt>รถ</dt>
-                <dd>{{ item.brand_model }} · {{ item.color }}</dd>
+                <dt>ยี่ห้อและรุ่น</dt>
+                <dd>{{ item.brand_model }}</dd>
+              </div>
+              <div>
+                <dt>สี</dt>
+                <dd>{{ item.color }}</dd>
               </div>
               <div>
                 <dt>เจ้าของ</dt>
@@ -402,99 +512,73 @@ onMounted(loadItems);
         </div>
         <p class="eyebrow">Add vehicle</p>
         <h2 id="add-title">เพิ่มข้อมูลรถ</h2>
-        <p>กรอกข้อมูลให้ครบเพื่อบันทึกสติกเกอร์เข้า-ออกวิทยาลัย</p>
+        <p>กรอกข้อมูลตามลำดับ ระบบจะใช้ข้อมูลนี้สำหรับสติกเกอร์เข้า-ออกวิทยาลัย</p>
 
         <form class="modal-field-grid" @submit.prevent="saveItem">
           <label>
             <span>ทะเบียนรถ</span>
-            <input v-model.trim="form.plate_no" required placeholder="กข 1234 เลย" />
+            <input v-model.trim="form.plate_no" required placeholder="กข 1234 เลย" autocomplete="off" />
+            <small>ใส่จังหวัดท้ายทะเบียนถ้ามี เพื่อช่วยค้นหาในภายหลัง</small>
           </label>
 
-          <label>
-            <span>ประเภทรถ</span>
-            <div class="custom-select" :class="{ 'is-open': openSelect === 'type' }">
-              <button
-                type="button"
-                class="select-trigger"
-                :aria-expanded="openSelect === 'type'"
-                aria-haspopup="listbox"
-                @click="toggleSelect('type')"
-              >
-                <span>{{ form.type }}</span>
-                <ChevronDown :size="18" />
-              </button>
-              <div v-if="openSelect === 'type'" class="select-menu" role="listbox">
-                <button
-                  v-for="type in carTypes"
-                  :key="type"
-                  type="button"
-                  class="select-option"
-                  :class="{ 'is-selected': form.type === type }"
-                  role="option"
-                  :aria-selected="form.type === type"
-                  @click="chooseOption('type', type)"
-                >
+          <fieldset class="choice-field">
+            <legend>ประเภทรถ</legend>
+            <div class="segmented-control two">
+              <label v-for="type in carTypes" :key="type" :class="{ 'is-selected': form.type === type }">
+                <input v-model="form.type" type="radio" name="type" :value="type" />
+                <span>
+                  <Car v-if="type === 'รถยนต์'" :size="16" />
+                  <Bike v-else :size="16" />
                   {{ type }}
-                </button>
-              </div>
+                </span>
+              </label>
             </div>
-          </label>
+          </fieldset>
 
           <label>
             <span>ยี่ห้อและรุ่น</span>
-            <input v-model.trim="form.brand_model" required placeholder="Toyota Yaris" />
+            <input v-model.trim="form.brand_model" required placeholder="Toyota Yaris" autocomplete="off" />
           </label>
 
           <label>
             <span>สี</span>
-            <input v-model.trim="form.color" required placeholder="ขาว" />
+            <input v-model.trim="form.color" required placeholder="ขาว" autocomplete="off" />
           </label>
 
           <label>
             <span>ชื่อเจ้าของ</span>
-            <input v-model.trim="form.owner" required placeholder="สมชาย ใจดี" />
+            <input v-model.trim="form.owner" required placeholder="สมชาย ใจดี" autocomplete="name" />
           </label>
 
           <label>
             <span>แผนก</span>
-            <input v-model.trim="form.department" required placeholder="เทคโนโลยีสารสนเทศ" />
+            <input v-model.trim="form.department" required placeholder="เทคโนโลยีสารสนเทศ" autocomplete="organization" />
           </label>
 
-          <label class="full">
-            <span>สถานะ</span>
-            <div class="custom-select" :class="{ 'is-open': openSelect === 'status' }">
-              <button
-                type="button"
-                class="select-trigger"
-                :aria-expanded="openSelect === 'status'"
-                aria-haspopup="listbox"
-                @click="toggleSelect('status')"
+          <fieldset class="choice-field full">
+            <legend>สถานะ</legend>
+            <div class="segmented-control three">
+              <label
+                v-for="status in statuses"
+                :key="status"
+                :class="[statusClass(status), { 'is-selected': form.status === status }]"
               >
-                <span class="status-dot" :class="statusClass(form.status)">{{ form.status }}</span>
-                <ChevronDown :size="18" />
-              </button>
-              <div v-if="openSelect === 'status'" class="select-menu" role="listbox">
-                <button
-                  v-for="status in statuses"
-                  :key="status"
-                  type="button"
-                  class="select-option"
-                  :class="{ 'is-selected': form.status === status }"
-                  role="option"
-                  :aria-selected="form.status === status"
-                  @click="chooseOption('status', status)"
-                >
+                <input v-model="form.status" type="radio" name="status" :value="status" />
+                <span>
+                  <CheckCircle2 v-if="status === 'ออกแล้ว'" :size="16" />
+                  <Clock3 v-else-if="status === 'รอออก'" :size="16" />
+                  <AlertTriangle v-else :size="16" />
                   {{ status }}
-                </button>
-              </div>
+                </span>
+              </label>
             </div>
-          </label>
+          </fieldset>
 
           <div class="confirm-actions full">
             <button type="button" class="ghost-button" @click="closeAddModal">ยกเลิก</button>
             <button type="submit" class="primary-button" :disabled="saving">
               <CheckCircle2 :size="18" />
-              {{ saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล' }}
+              {{ saving ? 'กำลังบันทึก' : 'บันทึกข้อมูล' }}
             </button>
           </div>
         </form>
@@ -520,7 +604,7 @@ onMounted(loadItems);
           <button type="button" class="ghost-button" @click="cancelDelete">ยกเลิก</button>
           <button type="button" class="primary-button danger-confirm" :disabled="loading" @click="confirmDelete">
             <Trash2 :size="18" />
-            {{ loading ? 'กำลังลบ...' : 'ยืนยันลบ' }}
+            {{ loading ? 'กำลังลบ' : 'ยืนยันลบ' }}
           </button>
         </div>
       </section>
@@ -541,94 +625,67 @@ onMounted(loadItems);
         <form class="modal-field-grid" @submit.prevent="saveEditItem">
           <label>
             <span>ทะเบียนรถ</span>
-            <input v-model.trim="editForm.plate_no" required placeholder="กข 1234 เลย" />
+            <input v-model.trim="editForm.plate_no" required placeholder="กข 1234 เลย" autocomplete="off" />
           </label>
 
-          <label>
-            <span>ประเภทรถ</span>
-            <div class="custom-select" :class="{ 'is-open': editOpenSelect === 'type' }">
-              <button
-                type="button"
-                class="select-trigger"
-                :aria-expanded="editOpenSelect === 'type'"
-                aria-haspopup="listbox"
-                @click="toggleEditSelect('type')"
-              >
-                <span>{{ editForm.type }}</span>
-                <ChevronDown :size="18" />
-              </button>
-              <div v-if="editOpenSelect === 'type'" class="select-menu" role="listbox">
-                <button
-                  v-for="type in carTypes"
-                  :key="type"
-                  type="button"
-                  class="select-option"
-                  :class="{ 'is-selected': editForm.type === type }"
-                  role="option"
-                  :aria-selected="editForm.type === type"
-                  @click="chooseEditOption('type', type)"
-                >
+          <fieldset class="choice-field">
+            <legend>ประเภทรถ</legend>
+            <div class="segmented-control two">
+              <label v-for="type in carTypes" :key="type" :class="{ 'is-selected': editForm.type === type }">
+                <input v-model="editForm.type" type="radio" name="edit-type" :value="type" />
+                <span>
+                  <Car v-if="type === 'รถยนต์'" :size="16" />
+                  <Bike v-else :size="16" />
                   {{ type }}
-                </button>
-              </div>
+                </span>
+              </label>
             </div>
-          </label>
+          </fieldset>
 
           <label>
             <span>ยี่ห้อและรุ่น</span>
-            <input v-model.trim="editForm.brand_model" required placeholder="Toyota Yaris" />
+            <input v-model.trim="editForm.brand_model" required placeholder="Toyota Yaris" autocomplete="off" />
           </label>
 
           <label>
             <span>สี</span>
-            <input v-model.trim="editForm.color" required placeholder="ขาว" />
+            <input v-model.trim="editForm.color" required placeholder="ขาว" autocomplete="off" />
           </label>
 
           <label>
             <span>ชื่อเจ้าของ</span>
-            <input v-model.trim="editForm.owner" required placeholder="สมชาย ใจดี" />
+            <input v-model.trim="editForm.owner" required placeholder="สมชาย ใจดี" autocomplete="name" />
           </label>
 
           <label>
             <span>แผนก</span>
-            <input v-model.trim="editForm.department" required placeholder="เทคโนโลยีสารสนเทศ" />
+            <input v-model.trim="editForm.department" required placeholder="เทคโนโลยีสารสนเทศ" autocomplete="organization" />
           </label>
 
-          <label class="full">
-            <span>สถานะ</span>
-            <div class="custom-select" :class="{ 'is-open': editOpenSelect === 'status' }">
-              <button
-                type="button"
-                class="select-trigger"
-                :aria-expanded="editOpenSelect === 'status'"
-                aria-haspopup="listbox"
-                @click="toggleEditSelect('status')"
+          <fieldset class="choice-field full">
+            <legend>สถานะ</legend>
+            <div class="segmented-control three">
+              <label
+                v-for="status in statuses"
+                :key="status"
+                :class="[statusClass(status), { 'is-selected': editForm.status === status }]"
               >
-                <span class="status-dot" :class="statusClass(editForm.status)">{{ editForm.status }}</span>
-                <ChevronDown :size="18" />
-              </button>
-              <div v-if="editOpenSelect === 'status'" class="select-menu" role="listbox">
-                <button
-                  v-for="status in statuses"
-                  :key="status"
-                  type="button"
-                  class="select-option"
-                  :class="{ 'is-selected': editForm.status === status }"
-                  role="option"
-                  :aria-selected="editForm.status === status"
-                  @click="chooseEditOption('status', status)"
-                >
+                <input v-model="editForm.status" type="radio" name="edit-status" :value="status" />
+                <span>
+                  <CheckCircle2 v-if="status === 'ออกแล้ว'" :size="16" />
+                  <Clock3 v-else-if="status === 'รอออก'" :size="16" />
+                  <AlertTriangle v-else :size="16" />
                   {{ status }}
-                </button>
-              </div>
+                </span>
+              </label>
             </div>
-          </label>
+          </fieldset>
 
           <div class="confirm-actions full">
             <button type="button" class="ghost-button" @click="closeEditModal">ยกเลิก</button>
             <button type="submit" class="primary-button" :disabled="saving">
               <CheckCircle2 :size="18" />
-              {{ saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข' }}
+              {{ saving ? 'กำลังบันทึก' : 'บันทึกการแก้ไข' }}
             </button>
           </div>
         </form>
