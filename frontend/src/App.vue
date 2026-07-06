@@ -5,7 +5,6 @@ import {
   Car,
   ChevronDown,
   CheckCircle2,
-  ClipboardList,
   Edit3,
   PlusCircle,
   RefreshCw,
@@ -36,6 +35,7 @@ const error = ref('');
 const success = ref('');
 const search = ref('');
 const openSelect = ref('');
+const addModalOpen = ref(false);
 const deleteTarget = ref(null);
 const editTarget = ref(null);
 const editForm = reactive({ ...emptyForm });
@@ -115,10 +115,16 @@ async function loadItems({ keepMessage = false, mode = 'load' } = {}) {
   }
 }
 
-function resetForm() {
-  Object.assign(form, emptyForm);
+function openAddModal() {
+  addModalOpen.value = true;
   openSelect.value = '';
   setMessage('', '');
+}
+
+function closeAddModal() {
+  addModalOpen.value = false;
+  openSelect.value = '';
+  Object.assign(form, emptyForm);
 }
 
 function editItem(item) {
@@ -169,7 +175,7 @@ async function saveItem() {
       body: JSON.stringify(form),
     });
 
-    resetForm();
+    closeAddModal();
     await loadItems({ keepMessage: true });
     setMessage('success', 'เพิ่มข้อมูลรถแล้ว');
   } catch (saveError) {
@@ -294,23 +300,111 @@ onMounted(loadItems);
     </section>
 
     <section class="workspace">
-      <form class="panel form-panel" @submit.prevent="saveItem">
+      <section class="panel list-panel">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">
-              <ClipboardList :size="16" />
-              Vehicle form
+              <Car :size="16" />
+              Vehicle records
             </p>
-            <h2>เพิ่มข้อมูลรถ</h2>
-            <p class="panel-note">กรอกข้อมูลให้ครบเพื่อบันทึกสติกเกอร์เข้า-ออกวิทยาลัย</p>
+            <h2>รายการรถบุคลากร</h2>
+            <p class="panel-note">ดูสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
           </div>
-          <button type="button" class="ghost-button" @click="resetForm">ล้างฟอร์ม</button>
+          <div class="panel-actions">
+            <button type="button" class="primary-button add-button" @click="openAddModal">
+              <PlusCircle :size="19" />
+              เพิ่มข้อมูลรถ
+            </button>
+            <button type="button" class="ghost-button" :disabled="loading" @click="loadItems({ mode: 'refresh' })">
+              <span v-if="refreshing" class="spinner" aria-hidden="true"></span>
+              <RefreshCw v-else :size="18" />
+              {{ refreshing ? 'กำลังรีเฟรช...' : 'รีเฟรช' }}
+            </button>
+          </div>
         </div>
 
         <div class="message error" v-if="error">{{ error }}</div>
         <div class="message success" v-if="success">{{ success }}</div>
 
-        <div class="field-grid">
+        <div class="records-toolbar">
+          <label class="search-box">
+            <span>ค้นหา</span>
+            <div class="search-input">
+              <input v-model.trim="search" placeholder="ทะเบียน เจ้าของ แผนก หรือสถานะ" />
+            </div>
+          </label>
+          <div class="record-count" aria-live="polite">
+            <strong>{{ initialLoading ? '-' : filteredItems.length }}</strong>
+            <span>รายการที่แสดง</span>
+          </div>
+        </div>
+
+        <div v-if="initialLoading" class="skeleton-stack" aria-label="กำลังโหลดข้อมูล">
+          <div class="skeleton-cards">
+            <span v-for="row in 3" :key="`card-skeleton-${row}`" class="skeleton skeleton-card"></span>
+          </div>
+        </div>
+
+        <div class="empty-state" v-else-if="filteredItems.length === 0">
+          <Sparkles :size="28" />
+          <strong>ยังไม่มีข้อมูลรถ</strong>
+          <span>เริ่มจากเพิ่มข้อมูลคันแรก หรือปรับคำค้นหาอีกครั้ง</span>
+        </div>
+
+        <div class="records-board" v-else :class="{ 'is-refreshing': refreshing }">
+          <article v-for="item in filteredItems" :key="item.id" class="record-list-card">
+            <div class="record-main">
+              <div class="plate-block">
+                <span class="record-label">ทะเบียนรถ</span>
+                <strong class="plate">{{ item.plate_no }}</strong>
+                <span class="type-chip"><Car :size="15" /> {{ item.type }}</span>
+              </div>
+              <span class="status" :class="statusClass(item.status)">{{ item.status }}</span>
+            </div>
+
+            <dl class="record-meta">
+              <div>
+                <dt>รถ</dt>
+                <dd>{{ item.brand_model }} · {{ item.color }}</dd>
+              </div>
+              <div>
+                <dt>เจ้าของ</dt>
+                <dd>{{ item.owner }}</dd>
+              </div>
+              <div>
+                <dt>แผนก</dt>
+                <dd>{{ item.department }}</dd>
+              </div>
+            </dl>
+
+            <div class="record-actions">
+              <button type="button" class="small-button" @click="editItem(item)">
+                <Edit3 :size="16" />
+                แก้ไข
+              </button>
+              <button type="button" class="small-button danger" @click="deleteItem(item)">
+                <Trash2 :size="16" />
+                ลบ
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <div v-if="addModalOpen" class="confirm-backdrop" role="presentation" @click.self="closeAddModal">
+      <section class="confirm-dialog edit-dialog add-dialog" role="dialog" aria-modal="true" aria-labelledby="add-title">
+        <button type="button" class="confirm-close" aria-label="ปิดหน้าต่างเพิ่มข้อมูล" @click="closeAddModal">
+          <X :size="18" />
+        </button>
+        <div class="confirm-icon edit-icon">
+          <PlusCircle :size="28" />
+        </div>
+        <p class="eyebrow">Add vehicle</p>
+        <h2 id="add-title">เพิ่มข้อมูลรถ</h2>
+        <p>กรอกข้อมูลให้ครบเพื่อบันทึกสติกเกอร์เข้า-ออกวิทยาลัย</p>
+
+        <form class="modal-field-grid" @submit.prevent="saveItem">
           <label>
             <span>ทะเบียนรถ</span>
             <input v-model.trim="form.plate_no" required placeholder="กข 1234 เลย" />
@@ -340,7 +434,6 @@ onMounted(loadItems);
                   :aria-selected="form.type === type"
                   @click="chooseOption('type', type)"
                 >
-                  <Car :size="17" />
                   {{ type }}
                 </button>
               </div>
@@ -391,143 +484,22 @@ onMounted(loadItems);
                   :aria-selected="form.status === status"
                   @click="chooseOption('status', status)"
                 >
-                  <CheckCircle2 :size="17" />
                   {{ status }}
                 </button>
               </div>
             </div>
           </label>
-        </div>
 
-        <button class="primary-button" type="submit" :disabled="saving">
-          <CheckCircle2 :size="20" />
-          {{ saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล' }}
-        </button>
-      </form>
-
-      <section class="panel list-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">
-              <Car :size="16" />
-              Vehicle records
-            </p>
-            <h2>รายการรถบุคลากร</h2>
-            <p class="panel-note">ดูสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
+          <div class="confirm-actions full">
+            <button type="button" class="ghost-button" @click="closeAddModal">ยกเลิก</button>
+            <button type="submit" class="primary-button" :disabled="saving">
+              <CheckCircle2 :size="18" />
+              {{ saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล' }}
+            </button>
           </div>
-          <button type="button" class="ghost-button" :disabled="loading" @click="loadItems({ mode: 'refresh' })">
-            <span v-if="refreshing" class="spinner" aria-hidden="true"></span>
-            <RefreshCw v-else :size="18" />
-            {{ refreshing ? 'กำลังรีเฟรช...' : 'รีเฟรช' }}
-          </button>
-        </div>
-
-        <label class="search-box">
-          <span><Search :size="17" /> ค้นหา</span>
-          <div class="search-input">
-            <Search :size="18" />
-            <input v-model.trim="search" placeholder="ทะเบียน เจ้าของ แผนก หรือสถานะ" />
-          </div>
-        </label>
-
-        <div v-if="initialLoading" class="skeleton-stack" aria-label="กำลังโหลดข้อมูล">
-          <div class="skeleton-table">
-            <span v-for="row in 5" :key="`table-skeleton-${row}`" class="skeleton skeleton-row"></span>
-          </div>
-          <div class="skeleton-cards">
-            <span v-for="row in 3" :key="`card-skeleton-${row}`" class="skeleton skeleton-card"></span>
-          </div>
-        </div>
-
-        <div class="empty-state" v-else-if="filteredItems.length === 0">
-          <Sparkles :size="28" />
-          <strong>ยังไม่มีข้อมูลรถ</strong>
-          <span>เริ่มจากเพิ่มข้อมูลคันแรก หรือปรับคำค้นหาอีกครั้ง</span>
-        </div>
-
-        <div class="table-wrap" v-else :class="{ 'is-refreshing': refreshing }">
-          <table>
-            <thead>
-              <tr>
-                <th>ทะเบียน</th>
-                <th>ประเภท</th>
-                <th>รถ</th>
-                <th>เจ้าของ</th>
-                <th>แผนก</th>
-                <th>สถานะ</th>
-                <th>จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in filteredItems" :key="item.id">
-                <td class="plate">{{ item.plate_no }}</td>
-                <td>{{ item.type }}</td>
-                <td>{{ item.brand_model }} · {{ item.color }}</td>
-                <td>{{ item.owner }}</td>
-                <td>{{ item.department }}</td>
-                <td>
-                  <span class="status" :class="statusClass(item.status)">{{ item.status }}</span>
-                </td>
-                <td>
-                  <div class="row-actions">
-                    <button type="button" class="small-button" @click="editItem(item)">
-                      <Edit3 :size="16" />
-                      แก้ไข
-                    </button>
-                    <button type="button" class="small-button danger" @click="deleteItem(item)">
-                      <Trash2 :size="16" />
-                      ลบ
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="record-cards" v-if="!initialLoading && filteredItems.length > 0" :class="{ 'is-refreshing': refreshing }">
-          <article v-for="item in filteredItems" :key="`card-${item.id}`" class="record-card">
-            <div class="record-card__top">
-              <div>
-                <span class="record-label">ทะเบียนรถ</span>
-                <strong>{{ item.plate_no }}</strong>
-              </div>
-              <span class="status" :class="statusClass(item.status)">{{ item.status }}</span>
-            </div>
-
-            <dl class="record-grid">
-              <div>
-                <dt>ประเภท</dt>
-                <dd>{{ item.type }}</dd>
-              </div>
-              <div>
-                <dt>รถ</dt>
-                <dd>{{ item.brand_model }} · {{ item.color }}</dd>
-              </div>
-              <div>
-                <dt>เจ้าของ</dt>
-                <dd>{{ item.owner }}</dd>
-              </div>
-              <div>
-                <dt>แผนก</dt>
-                <dd>{{ item.department }}</dd>
-              </div>
-            </dl>
-
-            <div class="card-actions">
-              <button type="button" class="small-button" @click="editItem(item)">
-                <Edit3 :size="16" />
-                แก้ไข
-              </button>
-              <button type="button" class="small-button danger" @click="deleteItem(item)">
-                <Trash2 :size="16" />
-                ลบ
-              </button>
-            </div>
-          </article>
-        </div>
+        </form>
       </section>
-    </section>
+    </div>
 
     <div v-if="deleteTarget" class="confirm-backdrop" role="presentation" @click.self="cancelDelete">
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
@@ -596,7 +568,6 @@ onMounted(loadItems);
                   :aria-selected="editForm.type === type"
                   @click="chooseEditOption('type', type)"
                 >
-                  <Car :size="17" />
                   {{ type }}
                 </button>
               </div>
@@ -647,7 +618,6 @@ onMounted(loadItems);
                   :aria-selected="editForm.status === status"
                   @click="chooseEditOption('status', status)"
                 >
-                  <CheckCircle2 :size="17" />
                   {{ status }}
                 </button>
               </div>
