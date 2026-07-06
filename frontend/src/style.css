@@ -27,8 +27,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% 10%, rgba(124, 92, 255, 0.16), transparent 28%),
-    radial-gradient(circle at 90% 18%, rgba(52, 169, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 12% 8%, rgba(124, 92, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 88% 14%, rgba(52, 169, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 42% 92%, rgba(71, 209, 108, 0.12), transparent 28%),
     linear-gradient(180deg, #f7f9ff 0%, #ffffff 46%, #f5f7ff 100%);
 }
 
@@ -62,6 +63,65 @@ button:disabled {
   pointer-events: none;
 }
 
+.particles::before,
+.particles::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  opacity: 0.55;
+}
+
+.particles::before {
+  background:
+    linear-gradient(rgba(63, 82, 217, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(63, 82, 217, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 50% 20%, black, transparent 72%);
+  animation: driftGrid 26s linear infinite;
+}
+
+.particles::after {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 107, 107, 0.18), transparent 18%),
+    radial-gradient(circle at 72% 20%, rgba(52, 169, 255, 0.2), transparent 20%),
+    radial-gradient(circle at 48% 74%, rgba(124, 92, 255, 0.16), transparent 18%),
+    radial-gradient(circle at 84% 82%, rgba(71, 209, 108, 0.13), transparent 17%);
+  filter: blur(14px);
+  animation: auroraFlow 18s ease-in-out infinite alternate;
+}
+
+.particles i {
+  position: absolute;
+  border: 1px solid rgba(63, 82, 217, 0.16);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0));
+  box-shadow: inset 0 0 24px rgba(124, 92, 255, 0.08), 0 0 42px rgba(52, 169, 255, 0.1);
+  animation: orbitFloat 16s ease-in-out infinite;
+}
+
+.particles i:nth-child(1) {
+  width: 190px;
+  height: 190px;
+  left: -56px;
+  top: 118px;
+}
+
+.particles i:nth-child(2) {
+  width: 260px;
+  height: 260px;
+  right: -110px;
+  top: 40px;
+  animation-delay: -5s;
+}
+
+.particles i:nth-child(3) {
+  width: 150px;
+  height: 150px;
+  right: 18%;
+  bottom: 8%;
+  animation-delay: -9s;
+}
+
 .particles span {
   position: absolute;
   width: 10px;
@@ -72,13 +132,13 @@ button:disabled {
   animation: floatParticle 12s ease-in-out infinite;
 }
 
-.particles span:nth-child(1) {
+.particles span:nth-child(4) {
   left: 8%;
   top: 18%;
   background: rgba(255, 107, 107, 0.18);
 }
 
-.particles span:nth-child(2) {
+.particles span:nth-child(5) {
   left: 88%;
   top: 16%;
   width: 14px;
@@ -86,14 +146,14 @@ button:disabled {
   animation-delay: -2s;
 }
 
-.particles span:nth-child(3) {
+.particles span:nth-child(6) {
   left: 76%;
   top: 68%;
   background: rgba(71, 209, 108, 0.2);
   animation-delay: -4s;
 }
 
-.particles span:nth-child(4) {
+.particles span:nth-child(7) {
   left: 18%;
   top: 76%;
   width: 16px;
@@ -102,7 +162,7 @@ button:disabled {
   animation-delay: -6s;
 }
 
-.particles span:nth-child(5) {
+.particles span:nth-child(8) {
   left: 48%;
   top: 9%;
   width: 8px;
@@ -111,13 +171,42 @@ button:disabled {
   animation-delay: -8s;
 }
 
-.particles span:nth-child(6) {
+.particles span:nth-child(9) {
   left: 55%;
   top: 86%;
   width: 12px;
   height: 12px;
   background: rgba(124, 92, 255, 0.2);
   animation-delay: -10s;
+}
+
+@keyframes driftGrid {
+  to {
+    transform: translate3d(64px, 64px, 0);
+  }
+}
+
+@keyframes auroraFlow {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+
+  100% {
+    transform: translate3d(2%, 2%, 0) scale(1.05);
+  }
+}
+
+@keyframes orbitFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: translate3d(18px, -18px, 0) rotate(12deg);
+    opacity: 0.9;
+  }
 }
 
 @keyframes floatParticle {
@@ -963,5 +1052,12 @@ th {
 
   .skeleton::after {
     display: none;
+  }
+
+  .particles::before,
+  .particles::after,
+  .particles i,
+  .particles span {
+    animation: none !important;
   }
 }

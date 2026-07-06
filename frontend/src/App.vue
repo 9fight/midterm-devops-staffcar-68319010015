@@ -247,6 +247,9 @@ onMounted(loadItems);
 <template>
   <main class="shell">
     <div class="particles" aria-hidden="true">
+      <i></i>
+      <i></i>
+      <i></i>
       <span></span>
       <span></span>
       <span></span>
