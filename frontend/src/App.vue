@@ -1,5 +1,18 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
+import {
+  BadgeCheck,
+  Car,
+  CheckCircle2,
+  ClipboardList,
+  Edit3,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+  UserRound,
+} from 'lucide-vue-next';
 
 const emptyForm = {
   plate_no: '',
@@ -170,15 +183,32 @@ onMounted(loadItems);
 
 <template>
   <main class="shell">
+    <div class="particles" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
     <section class="hero">
       <div>
-        <p class="eyebrow">staffcar · Loei Technical College</p>
+        <p class="eyebrow">
+          <Sparkles :size="16" />
+          staffcar · Loei Technical College
+        </p>
         <h1>ระบบบันทึกข้อมูลรถของบุคลากร</h1>
         <p class="lead">จัดการทะเบียนรถสำหรับออกสติกเกอร์เข้า-ออกวิทยาลัยแบบครบในหน้าเดียว</p>
+        <div class="hero-actions" aria-label="การทำงานหลัก">
+          <span><PlusCircle :size="18" /> เพิ่มข้อมูลรถ</span>
+          <span><Search :size="18" /> ค้นหาได้ทันที</span>
+          <span><BadgeCheck :size="18" /> ติดตามสถานะ</span>
+        </div>
       </div>
 
       <div class="owner-card" aria-label="ข้อมูลผู้จัดทำ">
-        <span>ผู้จัดทำ</span>
+        <span><UserRound :size="17" /> ผู้จัดทำ</span>
         <strong>chetsada suthongsa</strong>
         <small>68319010015 · ปวส2/2</small>
       </div>
@@ -186,11 +216,11 @@ onMounted(loadItems);
 
     <section class="overview" aria-label="สรุปข้อมูล">
       <article class="summary-card">
-        <span>รถทั้งหมด</span>
+        <span><Car :size="18" /> รถทั้งหมด</span>
         <strong>{{ items.length }}</strong>
       </article>
       <article v-for="count in statusCounts" :key="count.label" class="summary-card">
-        <span>{{ count.label }}</span>
+        <span><CheckCircle2 :size="18" /> {{ count.label }}</span>
         <strong>{{ count.total }}</strong>
       </article>
     </section>
@@ -199,8 +229,12 @@ onMounted(loadItems);
       <form class="panel form-panel" @submit.prevent="saveItem">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Vehicle form</p>
+            <p class="eyebrow">
+              <ClipboardList :size="16" />
+              Vehicle form
+            </p>
             <h2>{{ editingId ? 'แก้ไขข้อมูลรถ' : 'เพิ่มข้อมูลรถ' }}</h2>
+            <p class="panel-note">กรอกข้อมูลให้ครบเพื่อบันทึกสติกเกอร์เข้า-ออกวิทยาลัย</p>
           </div>
           <button type="button" class="ghost-button" @click="resetForm">ล้างฟอร์ม</button>
         </div>
@@ -250,6 +284,7 @@ onMounted(loadItems);
         </div>
 
         <button class="primary-button" type="submit" :disabled="saving">
+          <CheckCircle2 :size="20" />
           {{ saving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล' }}
         </button>
       </form>
@@ -257,21 +292,31 @@ onMounted(loadItems);
       <section class="panel list-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Vehicle records</p>
+            <p class="eyebrow">
+              <Car :size="16" />
+              Vehicle records
+            </p>
             <h2>รายการรถบุคลากร</h2>
+            <p class="panel-note">ดูสถานะ ค้นหา และจัดการข้อมูลรถได้จากรายการนี้</p>
           </div>
           <button type="button" class="ghost-button" :disabled="loading" @click="loadItems">
+            <RefreshCw :size="18" />
             {{ loading ? 'กำลังโหลด...' : 'รีเฟรช' }}
           </button>
         </div>
 
         <label class="search-box">
-          <span>ค้นหา</span>
-          <input v-model.trim="search" placeholder="ทะเบียน เจ้าของ แผนก หรือสถานะ" />
+          <span><Search :size="17" /> ค้นหา</span>
+          <div class="search-input">
+            <Search :size="18" />
+            <input v-model.trim="search" placeholder="ทะเบียน เจ้าของ แผนก หรือสถานะ" />
+          </div>
         </label>
 
         <div class="empty-state" v-if="!loading && filteredItems.length === 0">
-          ยังไม่มีข้อมูลที่ตรงกับการค้นหา
+          <Sparkles :size="28" />
+          <strong>ยังไม่มีข้อมูลรถ</strong>
+          <span>เริ่มจากเพิ่มข้อมูลคันแรก หรือปรับคำค้นหาอีกครั้ง</span>
         </div>
 
         <div class="table-wrap" v-else>
@@ -299,13 +344,61 @@ onMounted(loadItems);
                 </td>
                 <td>
                   <div class="row-actions">
-                    <button type="button" class="small-button" @click="editItem(item)">แก้ไข</button>
-                    <button type="button" class="small-button danger" @click="deleteItem(item)">ลบ</button>
+                    <button type="button" class="small-button" @click="editItem(item)">
+                      <Edit3 :size="16" />
+                      แก้ไข
+                    </button>
+                    <button type="button" class="small-button danger" @click="deleteItem(item)">
+                      <Trash2 :size="16" />
+                      ลบ
+                    </button>
                   </div>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="record-cards" v-if="!loading && filteredItems.length > 0">
+          <article v-for="item in filteredItems" :key="`card-${item.id}`" class="record-card">
+            <div class="record-card__top">
+              <div>
+                <span class="record-label">ทะเบียนรถ</span>
+                <strong>{{ item.plate_no }}</strong>
+              </div>
+              <span class="status" :class="statusClass(item.status)">{{ item.status }}</span>
+            </div>
+
+            <dl class="record-grid">
+              <div>
+                <dt>ประเภท</dt>
+                <dd>{{ item.type }}</dd>
+              </div>
+              <div>
+                <dt>รถ</dt>
+                <dd>{{ item.brand_model }} · {{ item.color }}</dd>
+              </div>
+              <div>
+                <dt>เจ้าของ</dt>
+                <dd>{{ item.owner }}</dd>
+              </div>
+              <div>
+                <dt>แผนก</dt>
+                <dd>{{ item.department }}</dd>
+              </div>
+            </dl>
+
+            <div class="card-actions">
+              <button type="button" class="small-button" @click="editItem(item)">
+                <Edit3 :size="16" />
+                แก้ไข
+              </button>
+              <button type="button" class="small-button danger" @click="deleteItem(item)">
+                <Trash2 :size="16" />
+                ลบ
+              </button>
+            </div>
+          </article>
         </div>
       </section>
     </section>
