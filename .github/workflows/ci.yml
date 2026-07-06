@@ -75,10 +75,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Docker Hub token
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.docker_token || secrets.DOCKER_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "Missing Docker Hub token. Add a repository secret named docker_token or DOCKER_TOKEN."
+            exit 1
+          fi
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.username || secrets.DOCKER_USERNAME }}
+          username: xenalz
           password: ${{ secrets.docker_token || secrets.DOCKER_TOKEN }}
 
       - name: Build and push backend image
