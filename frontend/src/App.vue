@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import {
   BadgeCheck,
   Car,
+  ChevronDown,
   CheckCircle2,
   ClipboardList,
   Edit3,
@@ -12,6 +13,7 @@ import {
   Sparkles,
   Trash2,
   UserRound,
+  X,
 } from 'lucide-vue-next';
 
 const emptyForm = {
@@ -32,6 +34,8 @@ const saving = ref(false);
 const error = ref('');
 const success = ref('');
 const search = ref('');
+const openSelect = ref('');
+const deleteTarget = ref(null);
 
 const carTypes = ['รถยนต์', 'รถจักรยานยนต์'];
 const statuses = ['ออกแล้ว', 'รอออก', 'หมดอายุ'];
@@ -107,6 +111,7 @@ async function loadItems({ keepMessage = false } = {}) {
 function resetForm() {
   Object.assign(form, emptyForm);
   editingId.value = null;
+  openSelect.value = '';
   setMessage('', '');
 }
 
@@ -123,6 +128,15 @@ function editItem(item) {
   editingId.value = item.id;
   setMessage('success', `กำลังแก้ไขทะเบียน ${item.plate_no}`);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleSelect(name) {
+  openSelect.value = openSelect.value === name ? '' : name;
+}
+
+function chooseOption(field, value) {
+  form[field] = value;
+  openSelect.value = '';
 }
 
 async function saveItem() {
@@ -149,13 +163,20 @@ async function saveItem() {
   }
 }
 
-async function deleteItem(item) {
-  const confirmed = window.confirm(`ลบข้อมูลทะเบียน ${item.plate_no} ใช่หรือไม่`);
+function deleteItem(item) {
+  deleteTarget.value = item;
+}
 
-  if (!confirmed) {
+function cancelDelete() {
+  deleteTarget.value = null;
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) {
     return;
   }
 
+  const item = deleteTarget.value;
   loading.value = true;
   setMessage('', '');
 
@@ -163,6 +184,7 @@ async function deleteItem(item) {
     await requestJson(`/api/items/${item.id}`, { method: 'DELETE' });
     await loadItems({ keepMessage: true });
     setMessage('success', `ลบทะเบียน ${item.plate_no} แล้ว`);
+    deleteTarget.value = null;
   } catch (deleteError) {
     setMessage('error', deleteError.message);
   } finally {
@@ -250,9 +272,33 @@ onMounted(loadItems);
 
           <label>
             <span>ประเภทรถ</span>
-            <select v-model="form.type" required>
-              <option v-for="type in carTypes" :key="type" :value="type">{{ type }}</option>
-            </select>
+            <div class="custom-select" :class="{ 'is-open': openSelect === 'type' }">
+              <button
+                type="button"
+                class="select-trigger"
+                :aria-expanded="openSelect === 'type'"
+                aria-haspopup="listbox"
+                @click="toggleSelect('type')"
+              >
+                <span>{{ form.type }}</span>
+                <ChevronDown :size="18" />
+              </button>
+              <div v-if="openSelect === 'type'" class="select-menu" role="listbox">
+                <button
+                  v-for="type in carTypes"
+                  :key="type"
+                  type="button"
+                  class="select-option"
+                  :class="{ 'is-selected': form.type === type }"
+                  role="option"
+                  :aria-selected="form.type === type"
+                  @click="chooseOption('type', type)"
+                >
+                  <Car :size="17" />
+                  {{ type }}
+                </button>
+              </div>
+            </div>
           </label>
 
           <label>
@@ -277,9 +323,33 @@ onMounted(loadItems);
 
           <label class="full">
             <span>สถานะ</span>
-            <select v-model="form.status" required>
-              <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
-            </select>
+            <div class="custom-select" :class="{ 'is-open': openSelect === 'status' }">
+              <button
+                type="button"
+                class="select-trigger"
+                :aria-expanded="openSelect === 'status'"
+                aria-haspopup="listbox"
+                @click="toggleSelect('status')"
+              >
+                <span class="status-dot" :class="statusClass(form.status)">{{ form.status }}</span>
+                <ChevronDown :size="18" />
+              </button>
+              <div v-if="openSelect === 'status'" class="select-menu" role="listbox">
+                <button
+                  v-for="status in statuses"
+                  :key="status"
+                  type="button"
+                  class="select-option"
+                  :class="{ 'is-selected': form.status === status }"
+                  role="option"
+                  :aria-selected="form.status === status"
+                  @click="chooseOption('status', status)"
+                >
+                  <CheckCircle2 :size="17" />
+                  {{ status }}
+                </button>
+              </div>
+            </div>
           </label>
         </div>
 
@@ -402,5 +472,30 @@ onMounted(loadItems);
         </div>
       </section>
     </section>
+
+    <div v-if="deleteTarget" class="confirm-backdrop" role="presentation" @click.self="cancelDelete">
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <button type="button" class="confirm-close" aria-label="ปิดหน้าต่างยืนยัน" @click="cancelDelete">
+          <X :size="18" />
+        </button>
+        <div class="confirm-icon">
+          <Trash2 :size="28" />
+        </div>
+        <p class="eyebrow">Confirm delete</p>
+        <h2 id="delete-title">ลบข้อมูลรถคันนี้?</h2>
+        <p>
+          ระบบจะลบทะเบียน
+          <strong>{{ deleteTarget.plate_no }}</strong>
+          ของ {{ deleteTarget.owner }} ออกจากรายการ
+        </p>
+        <div class="confirm-actions">
+          <button type="button" class="ghost-button" @click="cancelDelete">ยกเลิก</button>
+          <button type="button" class="primary-button danger-confirm" :disabled="loading" @click="confirmDelete">
+            <Trash2 :size="18" />
+            {{ loading ? 'กำลังลบ...' : 'ยืนยันลบ' }}
+          </button>
+        </div>
+      </section>
+    </div>
   </main>
 </template>
